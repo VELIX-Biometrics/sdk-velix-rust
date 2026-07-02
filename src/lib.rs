@@ -7,4 +7,10 @@ pub(crate) mod retry;
 pub use client::VelixClient;
 pub use config::VelixConfig;
 pub use error::VelixError;
-pub use modules::{checkin::CheckinResult, events::VelixEvent, persons::Person, tenants::Tenant};
+pub use modules::{
+    checkin::{CheckinIdentifyRequest, CheckinIdentifyResponse, Location, LivenessBlock, LivenessSample},
+    events::{CreateGuestRequest, GuestResponse},
+    lgpd::DeletionRequestResponse,
+    me::MeResponse,
+    onboarding::{FrameResult, OnboardingRequest, OnboardingResponse},
+};

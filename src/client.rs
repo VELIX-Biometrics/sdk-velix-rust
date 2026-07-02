@@ -5,8 +5,8 @@ use crate::{
     config::VelixConfig,
     error::VelixError,
     modules::{
-        checkin::CheckinModule, events::EventsModule, persons::PersonsModule,
-        tenants::TenantsModule,
+        checkin::CheckinModule, events::EventsModule, lgpd::LgpdModule, me::MeModule,
+        onboarding::OnboardingModule,
     },
     retry::with_retry,
 };
@@ -44,20 +44,26 @@ impl VelixClient {
         }
     }
 
-    pub fn persons(&self) -> PersonsModule {
-        PersonsModule {
+    pub fn onboarding(&self) -> OnboardingModule {
+        OnboardingModule {
+            client: self.clone(),
+        }
+    }
+
+    pub fn lgpd(&self) -> LgpdModule {
+        LgpdModule {
+            client: self.clone(),
+        }
+    }
+
+    pub fn me(&self) -> MeModule {
+        MeModule {
             client: self.clone(),
         }
     }
 
     pub fn events(&self) -> EventsModule {
         EventsModule {
-            client: self.clone(),
-        }
-    }
-
-    pub fn tenants(&self) -> TenantsModule {
-        TenantsModule {
             client: self.clone(),
         }
     }

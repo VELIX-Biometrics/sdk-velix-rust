@@ -1,82 +1,62 @@
-use wiremock::matchers::{method, path, query_param};
+use velix_sdk::{CreateGuestRequest, VelixClient, VelixConfig};
+use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
-use velix_sdk::{VelixClient, VelixConfig};
 
 #[tokio::test]
-async fn test_events_list() {
+async fn test_create_guest() {
     let server = MockServer::start().await;
 
-    Mock::given(method("GET"))
-        .and(path("/v1/events"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+    Mock::given(method("POST"))
+        .and(path("/v1/api/events/evt-1/guests"))
+        .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
             "data": {
-                "items": [{"id": "evt-1", "name": "Tech Summit", "status": "active"}],
-                "total": 1, "page": 1, "limit": 20
+                "id": "g-1",
+                "eventId": "evt-1",
+                "name": "Carlos",
+                "email": "carlos@acme.com",
+                "status": "invited",
+                "categoryId": null
             }
         })))
         .mount(&server)
         .await;
 
-    let client = VelixClient::new(VelixConfig::new(server.uri(), "vx_test_key")).unwrap();
-    let result = client.events().list(1, 20).await.unwrap();
+    let client = VelixClient::new(VelixConfig::new(server.uri(), "vlx_test_key")).unwrap();
+    let guest = client
+        .events()
+        .create_guest(
+            "evt-1",
+            CreateGuestRequest {
+                name: "Carlos".to_string(),
+                email: "carlos@acme.com".to_string(),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
 
-    assert_eq!(result.total, 1);
-    assert_eq!(result.items.len(), 1);
-    assert_eq!(result.items[0].id, "evt-1");
+    assert_eq!(guest.id, "g-1");
+    assert_eq!(guest.event_id, "evt-1");
 }
 
 #[tokio::test]
-async fn test_events_get() {
+async fn test_get_guest_not_found() {
     let server = MockServer::start().await;
 
     Mock::given(method("GET"))
-        .and(path("/v1/events/evt-1"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "data": {"id": "evt-1", "name": "Tech Summit", "status": "active"}
-        })))
-        .mount(&server)
-        .await;
-
-    let client = VelixClient::new(VelixConfig::new(server.uri(), "vx_test_key")).unwrap();
-    let event = client.events().get("evt-1").await.unwrap();
-
-    assert_eq!(event.id, "evt-1");
-    assert_eq!(event.name, "Tech Summit");
-}
-
-#[tokio::test]
-async fn test_events_get_not_found() {
-    let server = MockServer::start().await;
-
-    Mock::given(method("GET"))
-        .and(path("/v1/events/nonexistent"))
+        .and(path("/v1/api/events/evt-1/guests/nonexistent"))
         .respond_with(ResponseTemplate::new(404).set_body_json(serde_json::json!({
-            "message": "Event not found", "code": "NOT_FOUND"
+            "error": { "message": "Guest not found", "code": "NOT_FOUND" }
         })))
         .mount(&server)
         .await;
 
-    let client = VelixClient::new(VelixConfig::new(server.uri(), "vx_test_key")).unwrap();
-    let err = client.events().get("nonexistent").await.unwrap_err();
+    let client = VelixClient::new(VelixConfig::new(server.uri(), "vlx_test_key")).unwrap();
+    let err = client
+        .events()
+        .get_guest("evt-1", "nonexistent")
+        .await
+        .unwrap_err();
 
     assert!(matches!(err, velix_sdk::VelixError::NotFound(_)));
-}
-
-#[tokio::test]
-async fn test_events_create() {
-    let server = MockServer::start().await;
-
-    Mock::given(method("POST"))
-        .and(path("/v1/events"))
-        .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
-            "data": {"id": "evt-new", "name": "New Event", "status": "draft"}
-        })))
-        .mount(&server)
-        .await;
-
-    let client = VelixClient::new(VelixConfig::new(server.uri(), "vx_test_key")).unwrap();
-    let event = client.events().create("New Event").await.unwrap();
-
-    assert_eq!(event.id, "evt-new");
-    assert_eq!(event.status, "draft");
 }

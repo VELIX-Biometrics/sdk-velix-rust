@@ -1,6 +1,8 @@
 # velix-sdk — Rust SDK ![version](https://img.shields.io/badge/version-0.1.0--alpha.1-orange)
 
-> ⚠️ **Alpha / pre-release.** This SDK targets a public API surface that does not yet fully exist on the VELIX backend (see internal task #593). Endpoints and auth may not work against production. Do not use in production integrations yet.
+> ⚠️ **Alpha / pre-release.** Targets the API-key surface (`/v1/api/*`) defined in
+> `lib-velix-contracts/openapi/public-api.yaml` (task #593). Velix Time has no
+> exposed API-key endpoints yet — do not expect a `time()` module.
 
 Official Rust SDK for the VELIX Biometrics platform — facial access control B2B SaaS.
 
@@ -32,8 +34,14 @@ async fn main() -> Result<(), velix_sdk::VelixError> {
         ..Default::default()
     })?;
 
-    let result = client.checkin().facial("tenant-slug", &frame_base64).await?;
-    println!("passed: {}", result.passed);
+    let result = client
+        .checkin()
+        .identify(velix_sdk::CheckinIdentifyRequest {
+            image_base64: frame_base64,
+            ..Default::default()
+        })
+        .await?;
+    println!("matched: {}", result.matched);
     Ok(())
 }
 ```
@@ -43,95 +51,103 @@ async fn main() -> Result<(), velix_sdk::VelixError> {
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `VELIX_API_URL` | Yes | API base URL (`https://api.velixbiometrics.com`) |
-| `VELIX_API_KEY` | Yes | Tenant API key (`vx_live_...` or `vx_sandbox_...`) |
+| `VELIX_API_KEY` | Yes | API key (`vlx_...`), sent as `x-api-key` (alt: `Authorization: Bearer vlx_...`) |
+
+Default HTTP client timeout is 30000ms (30s), overridable via `VelixConfig.timeout`.
 
 ## Modules
 
-| Module | Methods |
-|--------|---------|
-| `client.checkin()` | `facial()`, `qr()`, `pin()`, `get_history()` |
-| `client.persons()` | `list()`, `get()`, `create()`, `update()`, `delete()`, `enroll()` |
-| `client.events()` | `list()`, `get()`, `create()`, `configure()` |
-| `client.tenants()` | `me()`, `update_settings()` |
+All modules map 1:1 to the 6 real endpoints under `/v1/api/*` in
+`api-velix-identity-core`. Every response is auto-unwrapped from the
+`{ "data": T }` envelope — the SDK only ever exposes `T`.
+
+| Module | Method | Endpoint | Scope |
+|--------|--------|----------|-------|
+| `client.onboarding()` | `enroll()` | `POST /v1/api/onboarding` | `onboarding:write` |
+| `client.checkin()` | `identify()` | `POST /v1/api/checkin/identify` | `checkin:write` |
+| `client.lgpd()` | `request_deletion()` | `POST /v1/api/deletion-request` | `lgpd:write` |
+| `client.me()` | `get()` | `GET /v1/api/me/{personId}` | `me:read` |
+| `client.events()` | `create_guest()` | `POST /v1/api/events/{id}/guests` | `events:write` |
+| `client.events()` | `get_guest()` | `GET /v1/api/events/{id}/guests/{guestId}` | `events:read` |
+
+**Velix Time** has no endpoints in the public API spec today (see
+`x-velix-sdk-contract-notes` in `public-api.yaml` — scopes `time:read`/
+`time:write` are reserved but unmounted). This SDK intentionally has no
+`time()` module; do not add one that no-ops or fakes data.
+
+Liveness score is **never** exposed by the API — only `passed`/`matched`
+booleans. This is a deliberate security property (prevents binary-search
+attacks against the biometric model), not an SDK limitation.
+
+## Onboarding Module
+
+```rust
+let result = client.onboarding().enroll(velix_sdk::OnboardingRequest {
+    name: "João Silva".into(),
+    email: Some("joao@company.com".into()),
+    frames: vec![frame1, frame2, frame3], // base64 JPEG, no data: URI prefix
+    ..Default::default()
+}).await?;
+// result.enrolled, result.person_id, result.identity_id
+```
 
 ## Checkin Module
 
 ```rust
-let checkin = client.checkin();
-
-// Facial identification (base64 JPEG frame)
-let result = checkin.facial("tenant-slug", &frame_base64).await?;
-// result.passed == true
-// result.person_id == Some("uuid".to_string())
-// result.person_name == Some("João Silva".to_string())
-
-// QR code checkin
-let result = checkin.qr("tenant-slug", &qr_token).await?;
-
-// PIN checkin
-let result = checkin.pin("tenant-slug", &pin).await?;
-
-// Paginated history
-let history = checkin.get_history("tenant-slug", 1, 20).await?;
+let result = client.checkin().identify(velix_sdk::CheckinIdentifyRequest {
+    image_base64: frame_base64,
+    top_k: Some(3),
+    liveness: Some(velix_sdk::LivenessBlock {
+        token: nonce_token, // from GET /v1/public/checkin/{tenantSlug}/liveness/challenge
+        samples: vec![velix_sdk::LivenessSample {
+            action: "center".into(),
+            image_base64: sample_frame,
+        }],
+    }),
+    ..Default::default()
+}).await?;
+// result.matched, result.person_id, result.quality_score
 ```
 
-## Persons Module
+## LGPD Module
 
 ```rust
-let persons = client.persons();
+let result = client.lgpd().request_deletion("person-uuid").await?;
+// result.protocol_number
+```
 
-// List
-let list = persons.list(1, 20).await?;
+## Me Module
 
-// Get by ID
-let person = persons.get("uuid").await?;
-
-// Create
-let created = persons.create(CreatePersonInput {
-    name: "João Silva".into(),
-    email: Some("joao@company.com".into()),
-    external_id: Some("EMP-001".into()),
-}).await?;
-
-// Update
-persons.update("uuid", UpdatePersonInput { name: Some("João B. Silva".into()), ..Default::default() }).await?;
-
-// Enroll biometrics (minimum 3 base64 frames)
-persons.enroll("uuid", vec![frame1, frame2, frame3]).await?;
-
-// Delete
-persons.delete("uuid").await?;
+```rust
+let me = client.me().get("person-uuid").await?;
+// me.id, me.name, me.email, me.photo_url
 ```
 
 ## Events Module
 
 ```rust
-let events = client.events();
+let guest = client.events().create_guest("event-uuid", velix_sdk::CreateGuestRequest {
+    name: "Carlos".into(),
+    email: "carlos@acme.com".into(),
+    ..Default::default()
+}).await?;
 
-let list    = events.list(1, 20).await?;
-let event   = events.get("uuid").await?;
-let created = events.create(CreateEventInput { name: "Conference 2026".into() }).await?;
-events.configure("uuid", EventConfig { check_in_open: Some(true), ..Default::default() }).await?;
-```
-
-## Tenants Module
-
-```rust
-let tenant = client.tenants().me().await?;
-client.tenants().update_settings(TenantSettings { require_liveness: Some(true), ..Default::default() }).await?;
+let guest = client.events().get_guest("event-uuid", "guest-uuid").await?;
+// guest.status reflects checkin status
 ```
 
 ## Error Handling
 
 ```rust
-use velix_sdk::{VelixError, AuthError, BiometricError, RateLimitError};
+use velix_sdk::VelixError;
 
-match client.checkin().facial("slug", &frame).await {
-    Ok(result) => println!("passed: {}", result.passed),
-    Err(VelixError::Auth(e))       => eprintln!("Invalid API key: {}", e),
-    Err(VelixError::Biometric(e))  => eprintln!("Face not recognized: {}", e),
-    Err(VelixError::RateLimit(e))  => eprintln!("Rate limit — retry after {:?}", e.retry_after),
-    Err(e)                         => eprintln!("Unexpected error: {}", e),
+match client.checkin().identify(request).await {
+    Ok(result) => println!("matched: {}", result.matched),
+    Err(VelixError::Auth(e)) => eprintln!("Invalid API key: {}", e),
+    Err(VelixError::RateLimit { retry_after_secs }) => {
+        eprintln!("Rate limit — retry after {}s", retry_after_secs)
+    }
+    Err(e) => eprintln!("Unexpected error: {}", e),
 }
 ```
 

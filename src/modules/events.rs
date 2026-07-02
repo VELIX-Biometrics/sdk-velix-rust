@@ -1,31 +1,36 @@
 use crate::{client::VelixClient, error::VelixError};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct VelixEvent {
-    pub id: String,
+/// Wire contract: `POST /v1/api/events/{id}/guests` (scope `events:write`).
+/// Mirrors `CreateGuestRequest` exactly — note camelCase fields
+/// (`birthDate`, `categoryId`, `companionOf`) alongside snake_case-free `cpf`/`phone`.
+#[derive(Debug, Default, Serialize)]
+pub struct CreateGuestRequest {
     pub name: String,
-    pub status: String,
-    pub tenant_id: String,
+    pub email: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cpf: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
+    #[serde(rename = "birthDate", skip_serializing_if = "Option::is_none")]
+    pub birth_date: Option<String>,
+    #[serde(rename = "categoryId", skip_serializing_if = "Option::is_none")]
+    pub category_id: Option<String>,
+    #[serde(rename = "companionOf", skip_serializing_if = "Option::is_none")]
+    pub companion_of: Option<String>,
 }
 
+/// `GuestResponse` — returned by both create and get-guest endpoints.
 #[derive(Debug, Deserialize)]
-pub struct EventsList {
-    pub items: Vec<VelixEvent>,
-    pub total: u64,
-}
-
-#[derive(Serialize)]
-pub struct CreateEventDto {
+pub struct GuestResponse {
+    pub id: String,
+    #[serde(rename = "eventId")]
+    pub event_id: String,
     pub name: String,
-    pub date: String,
-    pub location: Option<String>,
-}
-
-#[derive(Serialize)]
-pub struct EventConfigDto {
-    pub color_primary: Option<String>,
-    pub anti_passback: Option<bool>,
+    pub email: String,
+    pub status: String,
+    #[serde(rename = "categoryId")]
+    pub category_id: Option<String>,
 }
 
 pub struct EventsModule {
@@ -33,33 +38,29 @@ pub struct EventsModule {
 }
 
 impl EventsModule {
-    pub async fn list(&self, page: u32, limit: u32) -> Result<EventsList, VelixError> {
+    /// `POST /v1/api/events/{id}/guests` (scope `events:write`).
+    pub async fn create_guest(
+        &self,
+        event_id: &str,
+        request: CreateGuestRequest,
+    ) -> Result<GuestResponse, VelixError> {
         let url = self
             .client
-            .url(&format!("/v1/events?page={page}&limit={limit}"));
-        self.client.execute(|| self.client.http.get(&url)).await
-    }
-
-    pub async fn get(&self, id: &str) -> Result<VelixEvent, VelixError> {
-        let url = self.client.url(&format!("/v1/events/{id}"));
-        self.client.execute(|| self.client.http.get(&url)).await
-    }
-
-    pub async fn create(&self, dto: CreateEventDto) -> Result<VelixEvent, VelixError> {
-        let url = self.client.url("/v1/events");
+            .url(&format!("/v1/api/events/{event_id}/guests"));
         self.client
-            .execute(|| self.client.http.post(&url).json(&dto))
+            .execute(|| self.client.http.post(&url).json(&request))
             .await
     }
 
-    pub async fn configure(
+    /// `GET /v1/api/events/{id}/guests/{guestId}` (scope `events:read`).
+    pub async fn get_guest(
         &self,
-        id: &str,
-        config: EventConfigDto,
-    ) -> Result<VelixEvent, VelixError> {
-        let url = self.client.url(&format!("/v1/events/{id}/config"));
-        self.client
-            .execute(|| self.client.http.patch(&url).json(&config))
-            .await
+        event_id: &str,
+        guest_id: &str,
+    ) -> Result<GuestResponse, VelixError> {
+        let url = self
+            .client
+            .url(&format!("/v1/api/events/{event_id}/guests/{guest_id}"));
+        self.client.execute(|| self.client.http.get(&url)).await
     }
 }

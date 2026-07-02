@@ -1,17 +1,59 @@
 use crate::{client::VelixClient, error::VelixError};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
-pub struct CheckinResult {
-    pub passed: bool,
-    pub person_id: Option<String>,
-    pub person_name: Option<String>,
-    pub age_policy_action: Option<String>,
+/// `LivenessSample` — one frame captured during a liveness challenge step.
+#[derive(Debug, Serialize)]
+pub struct LivenessSample {
+    /// One of: `center`, `move_closer`, `move_away`.
+    pub action: String,
+    #[serde(rename = "imageBase64")]
+    pub image_base64: String,
 }
 
-#[derive(Serialize)]
-struct FacialPayload<'a> {
-    frame: &'a str,
+/// `LivenessBlock` — `token` is the nonce obtained from
+/// `GET /v1/public/checkin/{tenantSlug}/liveness/challenge` (public endpoint,
+/// no API key, shared between the public HMAC flow and this API-key flow).
+#[derive(Debug, Serialize)]
+pub struct LivenessBlock {
+    pub token: String,
+    pub samples: Vec<LivenessSample>,
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct Location {
+    pub latitude: f64,
+    pub longitude: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accuracy: Option<f64>,
+}
+
+/// Wire contract: `POST /v1/api/checkin/identify` (scope `checkin:write`).
+/// Mirrors `CheckinIdentifyRequest` in the public API spec exactly, including
+/// camelCase fields (`imageBase64`, `topK`) that diverge from the mostly
+/// snake_case wire casing used elsewhere in `/v1/api/*`.
+#[derive(Debug, Default, Serialize)]
+pub struct CheckinIdentifyRequest {
+    #[serde(rename = "imageBase64")]
+    pub image_base64: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub images: Option<Vec<String>>,
+    #[serde(rename = "topK", skip_serializing_if = "Option::is_none")]
+    pub top_k: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub liveness: Option<LivenessBlock>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<Location>,
+}
+
+/// `CheckinIdentifyResponse` — the only liveness indicator exposed publicly
+/// is `passed`/`matched`. Liveness score is never returned by the API
+/// (VELIX security rule — prevents binary-search attacks on the model).
+#[derive(Debug, Deserialize)]
+pub struct CheckinIdentifyResponse {
+    pub matched: bool,
+    pub person_id: Option<String>,
+    pub quality_score: f64,
+    pub message: String,
 }
 
 pub struct CheckinModule {
@@ -19,27 +61,13 @@ pub struct CheckinModule {
 }
 
 impl CheckinModule {
-    pub async fn facial(
+    pub async fn identify(
         &self,
-        tenant_slug: &str,
-        frame_base64: &str,
-    ) -> Result<CheckinResult, VelixError> {
-        let url = self
-            .client
-            .url(&format!("/v1/checkin/{tenant_slug}/identify"));
-        let payload = FacialPayload {
-            frame: frame_base64,
-        };
-        let body = serde_json::to_string(&payload)?;
-
+        request: CheckinIdentifyRequest,
+    ) -> Result<CheckinIdentifyResponse, VelixError> {
+        let url = self.client.url("/v1/api/checkin/identify");
         self.client
-            .execute(|| {
-                self.client
-                    .http
-                    .post(&url)
-                    .header("content-type", "application/json")
-                    .body(body.clone())
-            })
+            .execute(|| self.client.http.post(&url).json(&request))
             .await
     }
 }
