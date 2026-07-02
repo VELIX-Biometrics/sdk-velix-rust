@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::{client::VelixClient, error::VelixError};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Person {
@@ -40,43 +40,41 @@ pub struct PersonsModule {
 
 impl PersonsModule {
     pub async fn list(&self, page: u32, limit: u32) -> Result<PersonsList, VelixError> {
-        let url = self.client.url(&format!("/v1/persons?page={page}&limit={limit}"));
-        let resp = self.client.http.get(&url).send().await?;
-        self.client.handle_response(resp).await
+        let url = self
+            .client
+            .url(&format!("/v1/persons?page={page}&limit={limit}"));
+        self.client.execute(|| self.client.http.get(&url)).await
     }
 
     pub async fn get(&self, id: &str) -> Result<Person, VelixError> {
         let url = self.client.url(&format!("/v1/persons/{id}"));
-        let resp = self.client.http.get(&url).send().await?;
-        self.client.handle_response(resp).await
+        self.client.execute(|| self.client.http.get(&url)).await
     }
 
     pub async fn create(&self, dto: CreatePersonDto) -> Result<Person, VelixError> {
         let url = self.client.url("/v1/persons");
-        let resp = self.client.http.post(&url).json(&dto).send().await?;
-        self.client.handle_response(resp).await
+        self.client
+            .execute(|| self.client.http.post(&url).json(&dto))
+            .await
     }
 
     pub async fn update(&self, id: &str, dto: CreatePersonDto) -> Result<Person, VelixError> {
         let url = self.client.url(&format!("/v1/persons/{id}"));
-        let resp = self.client.http.put(&url).json(&dto).send().await?;
-        self.client.handle_response(resp).await
+        self.client
+            .execute(|| self.client.http.put(&url).json(&dto))
+            .await
     }
 
     pub async fn delete(&self, id: &str) -> Result<(), VelixError> {
         let url = self.client.url(&format!("/v1/persons/{id}"));
-        let resp = self.client.http.delete(&url).send().await?;
-        let status = resp.status().as_u16();
-        if (200..=299).contains(&status) {
-            Ok(())
-        } else {
-            Err(VelixError::Http { status, message: resp.text().await.unwrap_or_default() })
-        }
+        self.client.execute(|| self.client.http.delete(&url)).await
     }
 
     pub async fn enroll(&self, id: &str, frames: Vec<String>) -> Result<EnrollResult, VelixError> {
         let url = self.client.url(&format!("/v1/persons/{id}/enroll"));
-        let resp = self.client.http.post(&url).json(&EnrollDto { frames }).send().await?;
-        self.client.handle_response(resp).await
+        let dto = EnrollDto { frames };
+        self.client
+            .execute(|| self.client.http.post(&url).json(&dto))
+            .await
     }
 }

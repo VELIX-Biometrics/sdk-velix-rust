@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::{client::VelixClient, error::VelixError};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 pub struct Tenant {
@@ -27,13 +27,13 @@ pub struct TenantsModule {
 impl TenantsModule {
     pub async fn me(&self) -> Result<Tenant, VelixError> {
         let url = self.client.url("/v1/tenants/me");
-        let resp = self.client.http.get(&url).send().await?;
-        self.client.handle_response(resp).await
+        self.client.execute(|| self.client.http.get(&url)).await
     }
 
     pub async fn update_settings(&self, settings: TenantSettingsDto) -> Result<Tenant, VelixError> {
         let url = self.client.url("/v1/tenants/me/settings");
-        let resp = self.client.http.put(&url).json(&settings).send().await?;
-        self.client.handle_response(resp).await
+        self.client
+            .execute(|| self.client.http.put(&url).json(&settings))
+            .await
     }
 }

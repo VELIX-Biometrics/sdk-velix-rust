@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::{client::VelixClient, error::VelixError};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct VelixEvent {
@@ -34,26 +34,32 @@ pub struct EventsModule {
 
 impl EventsModule {
     pub async fn list(&self, page: u32, limit: u32) -> Result<EventsList, VelixError> {
-        let url = self.client.url(&format!("/v1/events?page={page}&limit={limit}"));
-        let resp = self.client.http.get(&url).send().await?;
-        self.client.handle_response(resp).await
+        let url = self
+            .client
+            .url(&format!("/v1/events?page={page}&limit={limit}"));
+        self.client.execute(|| self.client.http.get(&url)).await
     }
 
     pub async fn get(&self, id: &str) -> Result<VelixEvent, VelixError> {
         let url = self.client.url(&format!("/v1/events/{id}"));
-        let resp = self.client.http.get(&url).send().await?;
-        self.client.handle_response(resp).await
+        self.client.execute(|| self.client.http.get(&url)).await
     }
 
     pub async fn create(&self, dto: CreateEventDto) -> Result<VelixEvent, VelixError> {
         let url = self.client.url("/v1/events");
-        let resp = self.client.http.post(&url).json(&dto).send().await?;
-        self.client.handle_response(resp).await
+        self.client
+            .execute(|| self.client.http.post(&url).json(&dto))
+            .await
     }
 
-    pub async fn configure(&self, id: &str, config: EventConfigDto) -> Result<VelixEvent, VelixError> {
+    pub async fn configure(
+        &self,
+        id: &str,
+        config: EventConfigDto,
+    ) -> Result<VelixEvent, VelixError> {
         let url = self.client.url(&format!("/v1/events/{id}/config"));
-        let resp = self.client.http.patch(&url).json(&config).send().await?;
-        self.client.handle_response(resp).await
+        self.client
+            .execute(|| self.client.http.patch(&url).json(&config))
+            .await
     }
 }

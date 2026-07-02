@@ -1,10 +1,10 @@
 [package]
 name = "velix-sdk"
-version = "0.1.0-alpha.1"
+version = "0.1.0"
 edition = "2021"
 description = "SDK oficial do VELIX para Rust — controle de acesso biométrico"
-license = "MIT"
-repository = "https://github.com/velix/velix-sdk-rust"
+license = "UNLICENSED"
+repository = "https://bitbucket.org/brajola/velix-sdk-rust"
 keywords = ["velix", "biometrics", "access-control", "facial-recognition"]
 
 [dependencies]

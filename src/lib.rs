@@ -7,9 +7,4 @@ pub(crate) mod retry;
 pub use client::VelixClient;
 pub use config::VelixConfig;
 pub use error::VelixError;
-pub use modules::{
-    checkin::CheckinResult,
-    events::VelixEvent,
-    persons::Person,
-    tenants::Tenant,
-};
+pub use modules::{checkin::CheckinResult, events::VelixEvent, persons::Person, tenants::Tenant};
