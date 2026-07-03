@@ -1,8 +1,6 @@
 # velix-sdk — Rust SDK ![version](https://img.shields.io/badge/version-0.1.0--alpha.1-orange)
 
-> ⚠️ **Alpha / pre-release.** Targets the API-key surface (`/v1/api/*`) defined in
-> `lib-velix-contracts/openapi/public-api.yaml` (task #593). Velix Time has no
-> exposed API-key endpoints yet — do not expect a `time()` module.
+> ⚠️ **Alpha / pre-release**, mas já publicado e confirmado funcionando de ponta a ponta contra a API real de staging (onboarding, LGPD, me, events). **crates.io:** https://crates.io/crates/velix-sdk
 
 Official Rust SDK for the VELIX Biometrics platform — facial access control B2B SaaS.
 
