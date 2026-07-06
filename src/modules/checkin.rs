@@ -45,15 +45,27 @@ pub struct CheckinIdentifyRequest {
     pub location: Option<Location>,
 }
 
-/// `CheckinIdentifyResponse` — the only liveness indicator exposed publicly
-/// is `passed`/`matched`. Liveness score is never returned by the API
-/// (VELIX security rule — prevents binary-search attacks on the model).
+/// `LivenessResult` — the only liveness indicator exposed publicly is `ok`.
+/// Liveness score is never returned by the API (VELIX security rule —
+/// prevents binary-search attacks on the model).
+#[derive(Debug, Deserialize)]
+pub struct LivenessResult {
+    pub ok: bool,
+}
+
+/// `CheckinIdentifyResponse` — real wire contract of
+/// `CheckinService.identifyFace` (checkin.service.ts). Similarity score is
+/// never exposed either — only the `match` boolean and subject identity.
 #[derive(Debug, Deserialize)]
 pub struct CheckinIdentifyResponse {
+    #[serde(rename = "match")]
     pub matched: bool,
-    pub person_id: Option<String>,
-    pub quality_score: f64,
-    pub message: String,
+    #[serde(rename = "subjectId")]
+    pub subject_id: Option<String>,
+    #[serde(rename = "subjectName")]
+    pub subject_name: Option<String>,
+    pub liveness: LivenessResult,
+    pub model: String,
 }
 
 pub struct CheckinModule {

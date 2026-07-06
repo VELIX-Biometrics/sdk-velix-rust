@@ -7,14 +7,14 @@ use std::collections::HashMap;
 #[derive(Debug, Default, Serialize)]
 pub struct OnboardingRequest {
     pub name: String,
+    pub email: String,
+    pub phone: String,
+    pub document: String,
+    pub document_type: String,
+    /// ISO 8601 (e.g. "1990-05-20"). Optional, but required to compute
+    /// age/is_minor in the response.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub email: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub phone: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub document: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub document_type: Option<String>,
+    pub birth_date: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub external_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
