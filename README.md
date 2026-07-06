@@ -104,7 +104,7 @@ let result = client.checkin().identify(velix_sdk::CheckinIdentifyRequest {
     }),
     ..Default::default()
 }).await?;
-// result.matched, result.person_id, result.quality_score
+// result.matched, result.subject_id, result.subject_name, result.liveness.ok
 ```
 
 ## LGPD Module
