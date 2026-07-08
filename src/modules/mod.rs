@@ -1,4 +1,5 @@
 pub mod checkin;
+pub mod context;
 pub mod events;
 pub mod lgpd;
 pub mod me;

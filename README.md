@@ -77,6 +77,31 @@ Liveness score is **never** exposed by the API — only `passed`/`matched`
 booleans. This is a deliberate security property (prevents binary-search
 attacks against the biometric model), not an SDK limitation.
 
+## Identity Context
+
+Contexts, roles, permissions, memberships, link-requests (cross-tenant consent)
+and the authorization engine. BearerAuth (session JWT), not `x-api-key`. See
+`code/lib/lib-velix-contracts/openapi/public-api.yaml`, tag `Identity Context`.
+
+| Module | Methods | Endpoint |
+|--------|---------|----------|
+| `client.contexts()` | `create/get/list/update/remove`, `authorize`, `list_authorization_decisions`, `create_link_request` | `/v1/contexts/*` |
+| `client.memberships()` | `create`, `list_by_context`, `list_by_identity`, `update_status`, `add_roles`, `remove_roles` | `/v1/contexts/:id/memberships`, `/v1/identities/:id/memberships`, `/v1/memberships/*` |
+| `client.context_roles()` | `create`, `list`, `link_permissions` | `/v1/context-roles*` |
+| `client.context_permissions()` | `create`, `list` | `/v1/context-permissions` |
+| `client.authorization_tokens()` | `validate` | `POST /v1/authorization-tokens/validate` |
+
+```rust
+let context = client.contexts().create(json!({"name": "Matriz SP", "contextType": "location"})).await?;
+let decision = client.contexts().authorize(context_id, json!({"identityId": identity_id, "permission": "access:enter"})).await?;
+let membership = client.memberships().create(context_id, json!({"identityId": identity_id, "roleIds": [role_id]})).await?;
+// context exit (definitive, no grace period)
+client.memberships().update_status(membership_id, "revoked").await?;
+// cross-tenant link — stays PENDING until the person consents via magic link
+client.contexts().create_link_request(context_id, json!({"identityId": identity_id})).await?;
+client.authorization_tokens().validate("vat_...", false).await?;
+```
+
 ## Onboarding Module
 
 ```rust
