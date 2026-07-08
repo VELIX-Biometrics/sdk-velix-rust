@@ -5,7 +5,14 @@ use crate::{
     config::VelixConfig,
     error::VelixError,
     modules::{
-        checkin::CheckinModule, events::EventsModule, lgpd::LgpdModule, me::MeModule,
+        checkin::CheckinModule,
+        context::{
+            AuthorizationTokenModule, ContextMembershipModule, ContextModule,
+            ContextPermissionModule, ContextRoleModule,
+        },
+        events::EventsModule,
+        lgpd::LgpdModule,
+        me::MeModule,
         onboarding::OnboardingModule,
     },
     retry::with_retry,
@@ -64,6 +71,36 @@ impl VelixClient {
 
     pub fn events(&self) -> EventsModule {
         EventsModule {
+            client: self.clone(),
+        }
+    }
+
+    pub fn contexts(&self) -> ContextModule {
+        ContextModule {
+            client: self.clone(),
+        }
+    }
+
+    pub fn memberships(&self) -> ContextMembershipModule {
+        ContextMembershipModule {
+            client: self.clone(),
+        }
+    }
+
+    pub fn context_roles(&self) -> ContextRoleModule {
+        ContextRoleModule {
+            client: self.clone(),
+        }
+    }
+
+    pub fn context_permissions(&self) -> ContextPermissionModule {
+        ContextPermissionModule {
+            client: self.clone(),
+        }
+    }
+
+    pub fn authorization_tokens(&self) -> AuthorizationTokenModule {
+        AuthorizationTokenModule {
             client: self.clone(),
         }
     }
